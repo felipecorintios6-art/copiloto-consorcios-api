@@ -27,7 +27,10 @@ export async function generateAIResponse(
 ): Promise<GenerateAIResponseResult> {
   const providerId = resolveProvider(input.provider);
   const provider = aiProviders[providerId];
-  const model = input.model ?? process.env.AI_MODEL ?? provider.defaultModel;
+  const model =
+    providerId === "openrouter"
+      ? input.model ?? process.env.OPENROUTER_MODEL ?? provider.defaultModel
+      : input.model ?? process.env.AI_MODEL ?? provider.defaultModel;
 
   const content = await provider.generateText({
     messages: input.messages,

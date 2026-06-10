@@ -1,4 +1,4 @@
-export type AIProviderId = "deepseek" | "gemini" | "openai";
+export type AIProviderId = "deepseek" | "gemini" | "openai" | "openrouter";
 
 export type AIRole = "system" | "user" | "assistant";
 

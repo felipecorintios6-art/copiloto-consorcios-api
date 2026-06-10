@@ -35,6 +35,9 @@ AI_MODEL=
 DEEPSEEK_API_KEY=
 GEMINI_API_KEY=
 OPENAI_API_KEY=
+
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=openrouter/free
 ```
 
 `AI_PROVIDER` aceita:
@@ -42,6 +45,7 @@ OPENAI_API_KEY=
 - `openai`
 - `gemini`
 - `deepseek`
+- `openrouter`
 
 `AI_MODEL` e opcional. Se ficar vazio, cada provider usa seu modelo padrao.
 
@@ -50,6 +54,7 @@ Modelos padrao:
 - OpenAI: `gpt-4.1-mini`
 - Gemini: `gemini-1.5-flash`
 - DeepSeek: `deepseek-chat`
+- OpenRouter: `openrouter/free`
 
 ## Endpoint inicial
 

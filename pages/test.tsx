@@ -24,7 +24,7 @@ const samplePayload = {
   ]
 };
 
-const providers: AIProviderId[] = ["openai", "gemini", "deepseek"];
+const providers: AIProviderId[] = ["openai", "gemini", "deepseek", "openrouter"];
 
 export default function TestPage() {
   const [provider, setProvider] = useState<AIProviderId>("openai");
