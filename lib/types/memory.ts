@@ -1,3 +1,79 @@
+export type CompanyInput = {
+  external_id?: string;
+  name?: string;
+};
+
+export type LeadInput = {
+  external_id?: string;
+  company_id?: string;
+  name?: string;
+  phone?: string;
+  city?: string;
+  state?: string;
+  source?: string;
+  category?: string;
+  credit_value?: string | number;
+  entry_value?: string | number;
+  status?: string;
+};
+
+export type ConversationInput = {
+  external_id?: string;
+  company_id?: string;
+  lead_id?: string;
+  consultant_id?: string;
+  consultant_name?: string;
+  status?: string;
+  result?: string;
+  started_at?: string;
+  updated_at?: string;
+};
+
+export type MessageInput = {
+  external_id?: string;
+  conversation_id?: string;
+  sender_type?: string;
+  message_text?: string;
+  created_at?: string;
+};
+
+export type ConversationResultInput = {
+  conversation_id?: string;
+  status?: string;
+  result?: string;
+  loss_reason?: string;
+};
+
+export type ImportBatchInput = {
+  company: CompanyInput;
+  lead: LeadInput;
+  conversation: ConversationInput;
+  messages?: MessageInput[];
+  result?: ConversationResultInput;
+};
+
+export type ImportBatchResult = {
+  companyId: string;
+  leadId: string;
+  conversationId: string;
+  companiesCreated: number;
+  companiesUpdated: number;
+  leadsCreated: number;
+  leadsUpdated: number;
+  conversationsCreated: number;
+  conversationsUpdated: number;
+  messagesCreated: number;
+  messagesSkipped: number;
+  resultsCreated: number;
+};
+
+export type MemorySummary = {
+  companies: number;
+  leads: number;
+  conversations: number;
+  messages: number;
+};
+
 export type ImportConversationRecord = {
   empresa_nome: string;
   lead_nome: string;
@@ -38,16 +114,4 @@ export type ImportResult = ImportPreview & {
   leadsCreated: number;
   conversationsCreated: number;
   messagesCreated: number;
-};
-
-export type MemorySummary = {
-  companies: number;
-  leads: number;
-  conversations: number;
-  messages: number;
-  recentCompanies: Array<{
-    id: string;
-    name: string;
-    created_at: string;
-  }>;
 };

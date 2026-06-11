@@ -1,96 +1,125 @@
 import Head from "next/head";
 import Link from "next/link";
-import { ChangeEvent, useMemo, useState } from "react";
-import type {
-  ImportConversationRecord,
-  ImportResult,
-  ImportValidationError
-} from "@/lib/types/memory";
-import {
-  importColumns,
-  parseCSV,
-  parseJSONImport,
-  toImportRecords,
-  validateImportRecords
-} from "@/lib/utils/importParser";
+import { useMemo, useState } from "react";
+import type { ImportBatchResult } from "@/lib/types/memory";
 
-type UploadKind = "csv" | "json";
+type ImportState = {
+  result: ImportBatchResult | null;
+  error: string;
+  isLoading: boolean;
+};
 
-function getFileKind(fileName: string): UploadKind {
-  return fileName.toLowerCase().endsWith(".json") ? "json" : "csv";
-}
-
-function parseFileContent(kind: UploadKind, content: string) {
-  return kind === "json" ? parseJSONImport(content) : parseCSV(content);
-}
+const samplePayload = {
+  company: {
+    external_id: "empresa-001",
+    name: "Empresa Exemplo"
+  },
+  lead: {
+    external_id: "lead-001",
+    name: "Maria Silva",
+    phone: "11999999999",
+    city: "Sao Paulo",
+    state: "SP",
+    source: "CRM",
+    category: "Consorcio auto",
+    credit_value: "80000",
+    entry_value: "5000",
+    status: "novo"
+  },
+  conversation: {
+    external_id: "conversa-001",
+    consultant_id: "consultor-001",
+    consultant_name: "Joao SDR",
+    status: "em_atendimento",
+    result: "em_andamento",
+    started_at: "2026-06-11T10:00:00Z"
+  },
+  messages: [
+    {
+      external_id: "msg-001",
+      sender_type: "lead",
+      message_text: "Tenho interesse em consorcio.",
+      created_at: "2026-06-11T10:01:00Z"
+    }
+  ],
+  result: {
+    status: "em_atendimento",
+    result: "em_andamento",
+    loss_reason: null
+  }
+};
 
 export default function MemoryImportPage() {
-  const [records, setRecords] = useState<ImportConversationRecord[]>([]);
-  const [errors, setErrors] = useState<ImportValidationError[]>([]);
-  const [fileName, setFileName] = useState("");
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [feedback, setFeedback] = useState("");
-  const [isImporting, setIsImporting] = useState(false);
+  const [jsonText, setJsonText] = useState("");
+  const [state, setState] = useState<ImportState>({
+    result: null,
+    error: "",
+    isLoading: false
+  });
 
-  const previewRows = useMemo(() => records.slice(0, 5), [records]);
-  const validRecords = Math.max(records.length - new Set(errors.map((error) => error.row)).size, 0);
-
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    setFeedback("");
-    setImportResult(null);
-
-    if (!file) {
-      return;
+  const importedTotal = useMemo(() => {
+    if (!state.result) {
+      return 0;
     }
 
-    try {
-      const content = await file.text();
-      const parsed = toImportRecords(parseFileContent(getFileKind(file.name), content));
-      const validationErrors = validateImportRecords(parsed);
-
-      setFileName(file.name);
-      setRecords(parsed);
-      setErrors(validationErrors);
-    } catch (error) {
-      setFileName(file.name);
-      setRecords([]);
-      setErrors([]);
-      setFeedback(
-        error instanceof Error ? error.message : "Nao foi possivel ler o arquivo."
-      );
-    }
-  }
+    return (
+      state.result.companiesCreated +
+      state.result.companiesUpdated +
+      state.result.leadsCreated +
+      state.result.leadsUpdated +
+      state.result.conversationsCreated +
+      state.result.conversationsUpdated +
+      state.result.messagesCreated +
+      state.result.resultsCreated
+    );
+  }, [state.result]);
 
   async function handleImport() {
-    setFeedback("");
-    setImportResult(null);
-    setIsImporting(true);
+    setState({
+      result: null,
+      error: "",
+      isLoading: true
+    });
 
     try {
-      const response = await fetch("/api/import-conversations", {
+      const payload = JSON.parse(jsonText);
+      const response = await fetch("/api/memory/import-batch", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ records })
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
 
       if (!response.ok) {
-        setErrors(data.errors ?? []);
         throw new Error(data.error ?? "Importacao nao concluida.");
       }
 
-      setImportResult(data);
+      setState({
+        result: data.imported,
+        error: "",
+        isLoading: false
+      });
     } catch (error) {
-      setFeedback(
-        error instanceof Error ? error.message : "Erro inesperado na importacao."
-      );
-    } finally {
-      setIsImporting(false);
+      setState({
+        result: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro inesperado na importacao.",
+        isLoading: false
+      });
     }
+  }
+
+  function fillSample() {
+    setJsonText(JSON.stringify(samplePayload, null, 2));
+    setState({
+      result: null,
+      error: "",
+      isLoading: false
+    });
   }
 
   return (
@@ -102,102 +131,56 @@ export default function MemoryImportPage() {
         <header className="topbar">
           <div>
             <p className="eyebrow">Memoria Comercial</p>
-            <h1>Importar conversas</h1>
+            <h1>Importar dados historicos</h1>
           </div>
           <Link className="button" href="/memory">
             Ver memoria
           </Link>
         </header>
 
-        <section className="memory-grid">
-          <div className="panel import-panel">
-            <div className="panel-header">
-              <h2>Arquivo historico</h2>
-            </div>
-            <div className="import-body">
-              <label className="upload-zone">
-                <span>Selecionar CSV ou JSON</span>
-                <input
-                  accept=".csv,.json,application/json,text/csv"
-                  type="file"
-                  onChange={handleFileChange}
-                />
-              </label>
-              {fileName ? <p className="muted-line">{fileName}</p> : null}
-              <div className="counter-row">
-                <span>Total: {records.length}</span>
-                <span>Validos: {validRecords}</span>
-                <span>Erros: {errors.length}</span>
-              </div>
+        <section className="panel import-panel">
+          <div className="panel-header">
+            <h2>JSON do CRM</h2>
+          </div>
+          <div className="import-body">
+            <textarea
+              className="json-input"
+              value={jsonText}
+              onChange={(event) => setJsonText(event.target.value)}
+              placeholder="Cole aqui o JSON com company, lead, conversation, messages e result"
+              spellCheck={false}
+            />
+            <div className="actions-row">
               <button
                 className="button primary"
-                disabled={records.length === 0 || errors.length > 0 || isImporting}
+                disabled={!jsonText.trim() || state.isLoading}
                 type="button"
                 onClick={handleImport}
               >
-                {isImporting ? "Importando..." : "Importar conversas"}
+                {state.isLoading ? "Importando..." : "Importar"}
               </button>
-              {feedback ? <pre className="compact-error">{feedback}</pre> : null}
-              {importResult ? (
-                <div className="import-report">
-                  <strong>Importacao concluida</strong>
-                  <span>Empresas criadas: {importResult.companiesCreated}</span>
-                  <span>Leads criados: {importResult.leadsCreated}</span>
-                  <span>Conversas criadas: {importResult.conversationsCreated}</span>
-                  <span>Mensagens criadas: {importResult.messagesCreated}</span>
-                </div>
-              ) : null}
+              <button className="button" type="button" onClick={fillSample}>
+                Usar exemplo
+              </button>
             </div>
-          </div>
 
-          <div className="panel import-panel">
-            <div className="panel-header">
-              <h2>Relatorio de erros</h2>
-            </div>
-            <div className="import-body">
-              {errors.length === 0 ? (
-                <p className="muted-line">Nenhum erro encontrado.</p>
-              ) : (
-                <div className="error-list">
-                  {errors.map((error, index) => (
-                    <div key={`${error.row}-${error.field}-${index}`}>
-                      Linha {error.row} - {error.field}: {error.message}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+            {state.error ? <pre className="compact-error">{state.error}</pre> : null}
 
-        <section className="panel preview-panel">
-          <div className="panel-header">
-            <h2>Preview</h2>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  {importColumns.map((column) => (
-                    <th key={column}>{column}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {previewRows.map((record, index) => (
-                  <tr key={`${record.lead_nome}-${index}`}>
-                    {importColumns.map((column) => (
-                      <td key={column}>{record[column]}</td>
-                    ))}
-                  </tr>
-                ))}
-                {previewRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={importColumns.length}>Nenhum arquivo carregado.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+            {state.result ? (
+              <div className="import-report">
+                <strong>Importacao concluida</strong>
+                <span>Registros processados: {importedTotal}</span>
+                <span>Empresas criadas: {state.result.companiesCreated}</span>
+                <span>Empresas atualizadas: {state.result.companiesUpdated}</span>
+                <span>Leads criados: {state.result.leadsCreated}</span>
+                <span>Leads atualizados: {state.result.leadsUpdated}</span>
+                <span>Conversas criadas: {state.result.conversationsCreated}</span>
+                <span>Conversas atualizadas: {state.result.conversationsUpdated}</span>
+                <span>Mensagens criadas: {state.result.messagesCreated}</span>
+                <span>Mensagens ignoradas: {state.result.messagesSkipped}</span>
+                <span>Resultados criados: {state.result.resultsCreated}</span>
+              </div>
+            ) : null}
           </div>
         </section>
       </main>

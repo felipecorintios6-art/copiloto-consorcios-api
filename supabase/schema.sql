@@ -2,19 +2,24 @@ create extension if not exists pgcrypto;
 
 create table if not exists companies (
   id uuid primary key default gen_random_uuid(),
-  name text not null unique,
+  external_id text unique,
+  name text not null,
   created_at timestamptz not null default now()
 );
 
 create table if not exists leads (
   id uuid primary key default gen_random_uuid(),
+  external_id text unique,
   company_id uuid not null references companies(id) on delete cascade,
-  name text not null,
+  name text,
   phone text,
   city text,
+  state text,
+  source text,
   category text,
   credit_value text,
   entry_value text,
+  status text,
   created_at timestamptz not null default now()
 );
 
@@ -27,11 +32,15 @@ create index if not exists leads_company_name_idx
 
 create table if not exists conversations (
   id uuid primary key default gen_random_uuid(),
+  external_id text unique,
   company_id uuid not null references companies(id) on delete cascade,
   lead_id uuid not null references leads(id) on delete cascade,
+  consultant_id text,
   consultant_name text,
   status text,
   result text,
+  started_at timestamptz,
+  updated_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -43,14 +52,27 @@ create index if not exists conversations_lead_id_idx
 
 create table if not exists messages (
   id uuid primary key default gen_random_uuid(),
+  external_id text unique,
   conversation_id uuid not null references conversations(id) on delete cascade,
-  sender text not null,
-  message text not null,
+  sender_type text,
+  message_text text,
   created_at timestamptz not null default now()
 );
 
 create index if not exists messages_conversation_id_idx
   on messages(conversation_id);
+
+create table if not exists conversation_results (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references conversations(id) on delete cascade,
+  status text,
+  result text,
+  loss_reason text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists conversation_results_conversation_id_idx
+  on conversation_results(conversation_id);
 
 create table if not exists openrouter_keys (
   id uuid primary key default gen_random_uuid(),

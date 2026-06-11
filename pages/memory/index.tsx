@@ -21,7 +21,7 @@ export default function MemoryPage() {
 
     async function loadSummary() {
       try {
-        const response = await fetch("/api/memory-summary");
+        const response = await fetch("/api/memory/summary");
         const data = await response.json();
 
         if (!response.ok) {
@@ -58,19 +58,19 @@ export default function MemoryPage() {
 
   const stats = [
     {
-      label: "Empresas cadastradas",
+      label: "Total de empresas",
       value: state.data?.companies ?? 0
     },
     {
-      label: "Leads importados",
+      label: "Total de leads",
       value: state.data?.leads ?? 0
     },
     {
-      label: "Conversas importadas",
+      label: "Total de conversas",
       value: state.data?.conversations ?? 0
     },
     {
-      label: "Mensagens armazenadas",
+      label: "Total de mensagens",
       value: state.data?.messages ?? 0
     }
   ];
@@ -87,7 +87,7 @@ export default function MemoryPage() {
             <h1>Memoria Comercial</h1>
           </div>
           <Link className="button primary" href="/memory/import">
-            Importar conversas
+            Importar JSON
           </Link>
         </header>
 
@@ -100,35 +100,6 @@ export default function MemoryPage() {
               <strong>{state.isLoading ? "..." : stat.value}</strong>
             </div>
           ))}
-        </section>
-
-        <section className="panel preview-panel">
-          <div className="panel-header">
-            <h2>Empresas recentes</h2>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Empresa</th>
-                  <th>Criada em</th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.data?.recentCompanies.map((company) => (
-                  <tr key={company.id}>
-                    <td>{company.name}</td>
-                    <td>{new Date(company.created_at).toLocaleString("pt-BR")}</td>
-                  </tr>
-                ))}
-                {!state.isLoading && state.data?.recentCompanies.length === 0 ? (
-                  <tr>
-                    <td colSpan={2}>Nenhuma empresa cadastrada ainda.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
         </section>
       </main>
     </>

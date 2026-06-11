@@ -47,6 +47,65 @@ SUPABASE_SERVICE_ROLE_KEY=
 ENCRYPTION_SECRET=
 ```
 
+## Memoria comercial com Supabase
+
+As tabelas e indices estao em `supabase/migrations/001_memory_schema.sql`.
+
+Rotas internas de memoria:
+
+- `POST /api/memory/import-company`
+- `POST /api/memory/import-lead`
+- `POST /api/memory/import-conversation`
+- `POST /api/memory/import-message`
+- `POST /api/memory/import-batch`
+- `GET /api/memory/summary`
+
+O endpoint `/api/memory/import-batch` recebe:
+
+```json
+{
+  "company": {
+    "external_id": "empresa-001",
+    "name": "Empresa Exemplo"
+  },
+  "lead": {
+    "external_id": "lead-001",
+    "name": "Maria Silva",
+    "phone": "11999999999",
+    "city": "Sao Paulo",
+    "state": "SP",
+    "source": "CRM",
+    "category": "Consorcio auto",
+    "credit_value": "80000",
+    "entry_value": "5000",
+    "status": "novo"
+  },
+  "conversation": {
+    "external_id": "conversa-001",
+    "consultant_id": "consultor-001",
+    "consultant_name": "Joao SDR",
+    "status": "em_atendimento",
+    "result": "em_andamento",
+    "started_at": "2026-06-11T10:00:00Z"
+  },
+  "messages": [
+    {
+      "external_id": "msg-001",
+      "sender_type": "lead",
+      "message_text": "Tenho interesse em consorcio.",
+      "created_at": "2026-06-11T10:01:00Z"
+    }
+  ],
+  "result": {
+    "status": "em_atendimento",
+    "result": "em_andamento",
+    "loss_reason": null
+  }
+}
+```
+
+As rotas `/api/memory/*` exigem `SUPABASE_URL` ou `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`. A chave service role fica somente no backend.
+
 `AI_PROVIDER` aceita:
 
 - `openai`

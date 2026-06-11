@@ -1,28 +1,41 @@
 import type {
-  ImportConversationRecord,
+  CompanyInput,
+  ConversationInput,
+  ConversationResultInput,
+  ImportBatchInput,
+  ImportBatchResult,
+  LeadInput,
   MemorySummary,
-  ParsedHistoricalMessage
+  MessageInput
 } from "@/lib/types/memory";
 
 type SupabaseRow = Record<string, unknown>;
 
 type CompanyRow = {
   id: string;
+  external_id: string;
   name: string;
   created_at: string;
 };
 
 type LeadRow = {
   id: string;
+  external_id: string;
+  company_id: string;
+  name: string | null;
 };
 
 type ConversationRow = {
   id: string;
+  external_id: string;
+  company_id: string;
+  lead_id: string;
 };
 
-type UpsertResult<T> = {
-  row: T;
-  created: boolean;
+type MessageRow = {
+  id: string;
+  external_id: string;
+  conversation_id: string;
 };
 
 function getSupabaseConfig() {
@@ -88,6 +101,10 @@ function parseSupabaseJSON(text: string): unknown {
   }
 }
 
+function encodeFilter(value: string) {
+  return encodeURIComponent(value);
+}
+
 function firstReturnedRow<T>(rows: T[], operation: string): T {
   const row = rows[0];
 
@@ -98,137 +115,234 @@ function firstReturnedRow<T>(rows: T[], operation: string): T {
   return row;
 }
 
-function encodeFilter(value: string) {
-  return encodeURIComponent(value);
+function requireExternalId(value: unknown, entity: string): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`${entity}.external_id e obrigatorio.`);
+  }
+
+  return value.trim();
 }
 
-async function findCompanyByName(name: string): Promise<CompanyRow | null> {
-  const rows = await supabaseRequest<CompanyRow[]>(
-    `companies?name=eq.${encodeFilter(name)}&select=id,name,created_at&limit=1`
+function normalizeText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function normalizeNumberText(value: unknown): string | number | null {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  return normalizeText(value);
+}
+
+async function getByExternalId<T>(
+  table: string,
+  externalId: string,
+  select = "*"
+): Promise<T | null> {
+  const rows = await supabaseRequest<T[]>(
+    `${table}?external_id=eq.${encodeFilter(externalId)}&select=${select}&limit=1`
   );
 
   return rows[0] ?? null;
 }
 
-async function createCompany(name: string): Promise<CompanyRow> {
-  const rows = await supabaseRequest<CompanyRow[]>("companies?select=id,name,created_at", {
+async function upsertByExternalId<T>(
+  table: string,
+  payload: SupabaseRow,
+  operation: string
+): Promise<{ row: T; created: boolean }> {
+  const externalId = String(payload.external_id);
+  const existing = await getByExternalId<T>(table, externalId, "id");
+  const rows = await supabaseRequest<T[]>(`${table}?on_conflict=external_id&select=*`, {
     method: "POST",
-    prefer: "return=representation",
-    body: JSON.stringify({ name })
+    prefer: "resolution=merge-duplicates,return=representation",
+    body: JSON.stringify(payload)
   });
 
-  return firstReturnedRow(rows, "createCompany");
-}
-
-async function findOrCreateCompany(name: string): Promise<UpsertResult<CompanyRow>> {
-  const existing = await findCompanyByName(name);
-
-  if (existing) {
-    return {
-      row: existing,
-      created: false
-    };
-  }
-
   return {
-    row: await createCompany(name),
-    created: true
+    row: firstReturnedRow(rows, operation),
+    created: !existing
   };
 }
 
-async function findLead(record: ImportConversationRecord, companyId: string) {
-  const phone = record.lead_telefone;
-  const filter = phone
-    ? `company_id=eq.${companyId}&phone=eq.${encodeFilter(phone)}`
-    : `company_id=eq.${companyId}&name=eq.${encodeFilter(record.lead_nome)}`;
+export async function upsertCompany(company: CompanyInput) {
+  const externalId = requireExternalId(company.external_id, "company");
+  const name = normalizeText(company.name);
 
-  const rows = await supabaseRequest<LeadRow[]>(
-    `leads?${filter}&select=id&limit=1`
+  if (!name) {
+    throw new Error("company.name e obrigatorio.");
+  }
+
+  return upsertByExternalId<CompanyRow>(
+    "companies",
+    {
+      external_id: externalId,
+      name
+    },
+    "upsertCompany"
   );
-
-  return rows[0] ?? null;
 }
 
-async function createLead(
-  record: ImportConversationRecord,
-  companyId: string
-): Promise<LeadRow> {
-  const rows = await supabaseRequest<LeadRow[]>("leads?select=id", {
-    method: "POST",
-    prefer: "return=representation",
-    body: JSON.stringify({
-      company_id: companyId,
-      name: record.lead_nome,
-      phone: record.lead_telefone || null,
-      city: record.cidade_lead || null,
-      category: record.categoria_interesse || null,
-      credit_value: record.valor_credito || null,
-      entry_value: record.valor_entrada || null
-    })
-  });
+export async function upsertLead(lead: LeadInput, companyId?: string) {
+  const externalId = requireExternalId(lead.external_id, "lead");
+  const resolvedCompanyId = companyId ?? normalizeText(lead.company_id);
 
-  return firstReturnedRow(rows, "createLead");
-}
-
-async function findOrCreateLead(
-  record: ImportConversationRecord,
-  companyId: string
-): Promise<UpsertResult<LeadRow>> {
-  const existing = await findLead(record, companyId);
-
-  if (existing) {
-    return {
-      row: existing,
-      created: false
-    };
+  if (!resolvedCompanyId) {
+    throw new Error("lead.company_id e obrigatorio.");
   }
 
-  return {
-    row: await createLead(record, companyId),
-    created: true
-  };
+  return upsertByExternalId<LeadRow>(
+    "leads",
+    {
+      external_id: externalId,
+      company_id: resolvedCompanyId,
+      name: normalizeText(lead.name),
+      phone: normalizeText(lead.phone),
+      city: normalizeText(lead.city),
+      state: normalizeText(lead.state),
+      source: normalizeText(lead.source),
+      category: normalizeText(lead.category),
+      credit_value: normalizeNumberText(lead.credit_value),
+      entry_value: normalizeNumberText(lead.entry_value),
+      status: normalizeText(lead.status)
+    },
+    "upsertLead"
+  );
 }
 
-async function createConversation(
-  record: ImportConversationRecord,
-  companyId: string,
-  leadId: string
-): Promise<ConversationRow> {
-  const rows = await supabaseRequest<ConversationRow[]>("conversations?select=id", {
-    method: "POST",
-    prefer: "return=representation",
-    body: JSON.stringify({
-      company_id: companyId,
-      lead_id: leadId,
-      consultant_name: record.consultor_nome || null,
-      status: record.status_lead || null,
-      result: record.resultado_final || null
-    })
-  });
-
-  return firstReturnedRow(rows, "createConversation");
-}
-
-async function createMessages(
-  conversationId: string,
-  messages: ParsedHistoricalMessage[]
+export async function upsertConversation(
+  conversation: ConversationInput,
+  companyId?: string,
+  leadId?: string
 ) {
-  if (messages.length === 0) {
-    return;
+  const externalId = requireExternalId(conversation.external_id, "conversation");
+  const resolvedCompanyId = companyId ?? normalizeText(conversation.company_id);
+  const resolvedLeadId = leadId ?? normalizeText(conversation.lead_id);
+
+  if (!resolvedCompanyId) {
+    throw new Error("conversation.company_id e obrigatorio.");
   }
 
-  await supabaseRequest<SupabaseRow[]>("messages", {
+  if (!resolvedLeadId) {
+    throw new Error("conversation.lead_id e obrigatorio.");
+  }
+
+  return upsertByExternalId<ConversationRow>(
+    "conversations",
+    {
+      external_id: externalId,
+      company_id: resolvedCompanyId,
+      lead_id: resolvedLeadId,
+      consultant_id: normalizeText(conversation.consultant_id),
+      consultant_name: normalizeText(conversation.consultant_name),
+      status: normalizeText(conversation.status),
+      result: normalizeText(conversation.result),
+      started_at: normalizeText(conversation.started_at),
+      updated_at: normalizeText(conversation.updated_at)
+    },
+    "upsertConversation"
+  );
+}
+
+export async function importMessage(message: MessageInput, conversationId?: string) {
+  const externalId = requireExternalId(message.external_id, "message");
+  const resolvedConversationId = conversationId ?? normalizeText(message.conversation_id);
+
+  if (!resolvedConversationId) {
+    throw new Error("message.conversation_id e obrigatorio.");
+  }
+
+  const existing = await getByExternalId<MessageRow>("messages", externalId);
+
+  if (existing) {
+    return {
+      row: existing,
+      created: false
+    };
+  }
+
+  const rows = await supabaseRequest<MessageRow[]>("messages?select=*", {
+    method: "POST",
+    prefer: "return=representation",
+    body: JSON.stringify({
+      external_id: externalId,
+      conversation_id: resolvedConversationId,
+      sender_type: normalizeText(message.sender_type),
+      message_text: normalizeText(message.message_text),
+      created_at: normalizeText(message.created_at) ?? undefined
+    })
+  });
+
+  return {
+    row: firstReturnedRow(rows, "importMessage"),
+    created: true
+  };
+}
+
+export async function importConversationResult(
+  result: ConversationResultInput | undefined,
+  conversationId: string
+) {
+  if (!result) {
+    return { created: false };
+  }
+
+  await supabaseRequest<SupabaseRow[]>("conversation_results", {
     method: "POST",
     prefer: "return=minimal",
-    body: JSON.stringify(
-      messages.map((message) => ({
-        conversation_id: conversationId,
-        sender: message.sender,
-        message: message.message,
-        created_at: message.created_at
-      }))
-    )
+    body: JSON.stringify({
+      conversation_id: conversationId,
+      status: normalizeText(result.status),
+      result: normalizeText(result.result),
+      loss_reason: normalizeText(result.loss_reason)
+    })
   });
+
+  return { created: true };
+}
+
+export async function importBatch(input: ImportBatchInput): Promise<ImportBatchResult> {
+  const company = await upsertCompany(input.company);
+  const lead = await upsertLead(input.lead, company.row.id);
+  const conversation = await upsertConversation(
+    input.conversation,
+    company.row.id,
+    lead.row.id
+  );
+
+  let messagesCreated = 0;
+  let messagesSkipped = 0;
+
+  for (const message of input.messages ?? []) {
+    const imported = await importMessage(message, conversation.row.id);
+
+    if (imported.created) {
+      messagesCreated += 1;
+    } else {
+      messagesSkipped += 1;
+    }
+  }
+
+  const conversationResult = await importConversationResult(
+    input.result,
+    conversation.row.id
+  );
+
+  return {
+    companyId: company.row.id,
+    leadId: lead.row.id,
+    conversationId: conversation.row.id,
+    companiesCreated: company.created ? 1 : 0,
+    companiesUpdated: company.created ? 0 : 1,
+    leadsCreated: lead.created ? 1 : 0,
+    leadsUpdated: lead.created ? 0 : 1,
+    conversationsCreated: conversation.created ? 1 : 0,
+    conversationsUpdated: conversation.created ? 0 : 1,
+    messagesCreated,
+    messagesSkipped,
+    resultsCreated: conversationResult.created ? 1 : 0
+  };
 }
 
 async function countTable(table: string): Promise<number> {
@@ -252,41 +366,18 @@ async function countTable(table: string): Promise<number> {
   return count ? Number(count) : 0;
 }
 
-export async function importConversationRecord(
-  record: ImportConversationRecord,
-  messages: ParsedHistoricalMessage[]
-) {
-  const company = await findOrCreateCompany(record.empresa_nome);
-  const lead = await findOrCreateLead(record, company.row.id);
-  const conversation = await createConversation(record, company.row.id, lead.row.id);
-
-  await createMessages(conversation.id, messages);
-
-  return {
-    companyCreated: company.created,
-    leadCreated: lead.created,
-    conversationCreated: true,
-    messagesCreated: messages.length
-  };
-}
-
 export async function getMemorySummary(): Promise<MemorySummary> {
-  const [companies, leads, conversations, messages, recentCompanies] =
-    await Promise.all([
-      countTable("companies"),
-      countTable("leads"),
-      countTable("conversations"),
-      countTable("messages"),
-      supabaseRequest<CompanyRow[]>(
-        "companies?select=id,name,created_at&order=created_at.desc&limit=8"
-      )
-    ]);
+  const [companies, leads, conversations, messages] = await Promise.all([
+    countTable("companies"),
+    countTable("leads"),
+    countTable("conversations"),
+    countTable("messages")
+  ]);
 
   return {
     companies,
     leads,
     conversations,
-    messages,
-    recentCompanies
+    messages
   };
 }
