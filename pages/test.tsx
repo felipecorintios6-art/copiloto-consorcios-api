@@ -1,5 +1,9 @@
 import Head from "next/head";
 import { FormEvent, useMemo, useState } from "react";
+import {
+  OPENROUTER_MODELS,
+  type OpenRouterModelId
+} from "@/lib/ai/openrouter-models";
 import type { AIProviderId } from "@/lib/types/ai";
 import type { SuggestResponseResult } from "@/lib/types/consorcios";
 
@@ -24,10 +28,39 @@ const samplePayload = {
   ]
 };
 
-const providers: AIProviderId[] = ["openai", "gemini", "deepseek", "openrouter"];
+const providers: Array<{
+  id: AIProviderId;
+  label: string;
+}> = [
+  {
+    id: "openrouter",
+    label: "OpenRouter"
+  },
+  {
+    id: "openai",
+    label: "OpenAI"
+  },
+  {
+    id: "gemini",
+    label: "Gemini"
+  },
+  {
+    id: "deepseek",
+    label: "DeepSeek"
+  }
+];
+
+function getProviderLabel(provider: AIProviderId) {
+  return (
+    providers.find((providerOption) => providerOption.id === provider)?.label ??
+    provider
+  );
+}
 
 export default function TestPage() {
-  const [provider, setProvider] = useState<AIProviderId>("openai");
+  const [provider, setProvider] = useState<AIProviderId>("openrouter");
+  const [selectedOpenRouterModelId, setSelectedOpenRouterModelId] =
+    useState<OpenRouterModelId>("openrouter-auto");
   const [jsonInput, setJsonInput] = useState(
     JSON.stringify(samplePayload, null, 2)
   );
@@ -39,6 +72,9 @@ export default function TestPage() {
     () => (result ? JSON.stringify(result, null, 2) : ""),
     [result]
   );
+  const selectedOpenRouterModel = OPENROUTER_MODELS.find(
+    (model) => model.id === selectedOpenRouterModelId
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,12 +84,17 @@ export default function TestPage() {
 
     try {
       const parsedPayload = JSON.parse(jsonInput);
-      const response = await fetch(`/api/suggest-response?provider=${provider}`, {
+      const response = await fetch("/api/suggest-response", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(parsedPayload)
+        body: JSON.stringify({
+          ...parsedPayload,
+          provider,
+          selected_model_id:
+            provider === "openrouter" ? selectedOpenRouterModelId : undefined
+        })
       });
       const data = await response.json();
 
@@ -84,17 +125,44 @@ export default function TestPage() {
             <p className="eyebrow">Copiloto Consorcios API</p>
             <h1>Teste do motor</h1>
           </div>
-          <select
-            aria-label="Provider"
-            value={provider}
-            onChange={(event) => setProvider(event.target.value as AIProviderId)}
-          >
-            {providers.map((providerOption) => (
-              <option key={providerOption} value={providerOption}>
-                {providerOption}
-              </option>
-            ))}
-          </select>
+          <div className="test-controls">
+            <label>
+              <span>Provider</span>
+              <select
+                aria-label="Provider"
+                value={provider}
+                onChange={(event) =>
+                  setProvider(event.target.value as AIProviderId)
+                }
+              >
+                {providers.map((providerOption) => (
+                  <option key={providerOption.id} value={providerOption.id}>
+                    {providerOption.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {provider === "openrouter" ? (
+              <label>
+                <span>IA do OpenRouter</span>
+                <select
+                  aria-label="IA do OpenRouter"
+                  value={selectedOpenRouterModelId}
+                  onChange={(event) =>
+                    setSelectedOpenRouterModelId(
+                      event.target.value as OpenRouterModelId
+                    )
+                  }
+                >
+                  {OPENROUTER_MODELS.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
         </header>
 
         <form className="workspace" onSubmit={handleSubmit}>
@@ -116,6 +184,20 @@ export default function TestPage() {
             <div className="panel-header">
               <h2>Retorno</h2>
             </div>
+            {result ? (
+              <div className="result-meta">
+                <span>
+                  Provider:{" "}
+                  {result.provider && providers.some((item) => item.id === result.provider)
+                    ? getProviderLabel(result.provider as AIProviderId)
+                    : getProviderLabel(provider)}
+                </span>
+                <span>
+                  IA utilizada:{" "}
+                  {result.ai_used ?? selectedOpenRouterModel?.label ?? "-"}
+                </span>
+              </div>
+            ) : null}
             {error ? <pre className="error">{error}</pre> : null}
             {!error && result ? <pre>{resultText}</pre> : null}
             {!error && !result ? (

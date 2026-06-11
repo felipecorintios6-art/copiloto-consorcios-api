@@ -35,6 +35,7 @@ export async function suggestConsortiumResponse(
   options?: {
     provider?: AIProviderId;
     model?: string;
+    aiUsed?: string;
   }
 ): Promise<SuggestResponseResult> {
   const response = await generateAIResponse({
@@ -58,13 +59,23 @@ export async function suggestConsortiumResponse(
       response.content
     );
 
-    return normalizeSuggestResponseResult(parsed);
+    return {
+      provider: response.provider,
+      ai_used: options?.aiUsed ?? response.provider,
+      model_used: response.model,
+      ...normalizeSuggestResponseResult(parsed)
+    };
   } catch {
-    return normalizeSuggestResponseResult({
-      suggestion: cleanSuggestionFallback(response.content),
-      lead_temperature: "",
-      detected_objection: "",
-      next_action: "Revisar a sugestao antes de enviar ao lead."
-    });
+    return {
+      provider: response.provider,
+      ai_used: options?.aiUsed ?? response.provider,
+      model_used: response.model,
+      ...normalizeSuggestResponseResult({
+        suggestion: cleanSuggestionFallback(response.content),
+        lead_temperature: "",
+        detected_objection: "",
+        next_action: "Revisar a sugestao antes de enviar ao lead."
+      })
+    };
   }
 }

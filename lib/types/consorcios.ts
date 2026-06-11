@@ -25,6 +25,9 @@ export type SuggestResponseRequest = {
 export type LeadTemperature = "frio" | "morno" | "quente";
 
 export type SuggestResponseResult = {
+  provider?: string;
+  ai_used?: string;
+  model_used?: string;
   suggestion: string;
   lead_temperature: LeadTemperature | "";
   detected_objection: string;
