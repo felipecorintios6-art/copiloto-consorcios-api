@@ -67,6 +67,7 @@ Rotas internas de memoria:
 - `POST /api/memory/import-message`
 - `POST /api/memory/import-batch`
 - `GET /api/memory/summary`
+- `GET /api/memory/health`
 
 O endpoint `/api/memory/import-batch` recebe:
 
@@ -318,9 +319,10 @@ Checklist Supabase:
 5. Na Vercel, configurar `SUPABASE_SERVICE_ROLE_KEY`.
 6. Fazer redeploy na Vercel.
 7. Abrir `/test` e confirmar que o motor atual continua funcionando.
-8. Abrir `/memory` e confirmar que os contadores carregam.
-9. Abrir `/memory/import`, usar o exemplo e importar um lote de teste.
-10. Confirmar no Supabase se os registros apareceram nas tabelas.
+8. Abrir `/api/memory/health` e confirmar `ok: true`.
+9. Abrir `/memory` e confirmar que os contadores carregam.
+10. Abrir `/memory/import`, usar o exemplo e importar um lote de teste.
+11. Confirmar no Supabase se os registros apareceram nas tabelas.
 
 Build:
 
