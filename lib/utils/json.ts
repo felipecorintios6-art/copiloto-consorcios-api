@@ -1,5 +1,9 @@
 export function extractJSONObject(text: string): string {
-  const trimmed = text.trim();
+  const trimmed = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
 
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
     return trimmed;

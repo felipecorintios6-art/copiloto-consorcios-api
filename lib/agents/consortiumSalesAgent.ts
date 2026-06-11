@@ -15,11 +15,19 @@ function buildAgentInput(input: SuggestResponseRequest): string {
       lead: input.lead,
       conversation: input.conversation,
       task:
-        "Analise a conversa e gere uma sugestao curta para o consultor comercial."
+        "Analise a conversa e gere uma sugestao curta para o consultor comercial. Retorne apenas JSON valido, sem markdown e sem texto antes ou depois."
     },
     null,
     2
   );
+}
+
+function cleanSuggestionFallback(content: string): string {
+  return content
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim()
+    .slice(0, 800);
 }
 
 export async function suggestConsortiumResponse(
@@ -45,9 +53,18 @@ export async function suggestConsortiumResponse(
     ]
   });
 
-  const parsed = parseJSONObject<Partial<SuggestResponseResult>>(
-    response.content
-  );
+  try {
+    const parsed = parseJSONObject<Partial<SuggestResponseResult>>(
+      response.content
+    );
 
-  return normalizeSuggestResponseResult(parsed);
+    return normalizeSuggestResponseResult(parsed);
+  } catch {
+    return normalizeSuggestResponseResult({
+      suggestion: cleanSuggestionFallback(response.content),
+      lead_temperature: "",
+      detected_objection: "",
+      next_action: "Revisar a sugestao antes de enviar ao lead."
+    });
+  }
 }
