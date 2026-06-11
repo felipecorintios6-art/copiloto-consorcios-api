@@ -26,6 +26,7 @@ body {
 
 button,
 select,
+input,
 textarea {
   font: inherit;
 }
@@ -138,6 +139,15 @@ p {
 select {
   min-width: 160px;
   height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+input {
+  min-height: 40px;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0 12px;
@@ -343,6 +353,81 @@ td {
   line-height: 1;
 }
 
+.admin-form {
+  overflow: hidden;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.form-grid .button,
+.form-grid .small-textarea {
+  grid-column: 1 / -1;
+}
+
+.small-textarea {
+  min-height: 90px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.status-pill {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-pill.active {
+  background: rgba(15, 118, 110, 0.12);
+  color: var(--accent-strong);
+}
+
+.status-pill.near_limit {
+  background: rgba(181, 83, 9, 0.12);
+  color: #92400e;
+}
+
+.status-pill.cooldown {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.status-pill.daily_limit_reached,
+.status-pill.inactive {
+  background: rgba(180, 35, 24, 0.1);
+  color: var(--danger);
+}
+
+.muted-block {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.danger-button {
+  color: var(--danger);
+}
+
 @media (max-width: 900px) {
   .test-shell {
     padding: 16px;
@@ -359,6 +444,10 @@ td {
 
   .memory-grid,
   .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid {
     grid-template-columns: 1fr;
   }
 

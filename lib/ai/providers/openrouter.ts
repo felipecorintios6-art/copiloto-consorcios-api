@@ -1,3 +1,9 @@
+import {
+  queueAIRequest,
+  recordOpenRouterUsage,
+  releaseOpenRouterKey,
+  selectAvailableOpenRouterKey
+} from "@/lib/openrouter/capacityManager";
 import type { AIProvider } from "./types";
 
 type OpenRouterChatResponse = {
@@ -6,6 +12,10 @@ type OpenRouterChatResponse = {
       content?: string;
     };
   }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
   error?: unknown;
 };
 
@@ -44,41 +54,114 @@ export const openRouterProvider: AIProvider = {
   id: "openrouter",
   defaultModel: "openrouter/free",
   async generateText({ messages, model }) {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const endpoint = "/api/suggest-response";
+    const attemptedKeyIds = new Set<string>();
 
-    if (!apiKey) {
-      throw new Error("OPENROUTER_API_KEY nao configurada.");
-    }
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const selectedKey = await selectAvailableOpenRouterKey();
 
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://copiloto-consorcios-api.vercel.app",
-          "X-Title": "Copiloto Consórcios API"
-        },
-        body: JSON.stringify({
-          model,
-          messages
-        })
+      if (!selectedKey || attemptedKeyIds.has(selectedKey.id)) {
+        await queueAIRequest({
+          endpoint,
+          payload: {
+            model,
+            messages
+          },
+          lastError: "Nenhuma chave OpenRouter disponivel."
+        });
+        await recordOpenRouterUsage({
+          keyId: null,
+          endpoint,
+          status: "queued",
+          errorMessage: "Nenhuma chave disponivel no momento."
+        });
+        throw new Error(
+          "Nenhuma chave dispon\u00edvel no momento. A requisi\u00e7\u00e3o foi colocada em fila."
+        );
       }
+
+      attemptedKeyIds.add(selectedKey.id);
+
+      try {
+        const response = await fetch(
+          "https://openrouter.ai/api/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${selectedKey.apiKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://copiloto-consorcios-api.vercel.app",
+              "X-Title": "Copiloto Cons\u00f3rcios API"
+            },
+            body: JSON.stringify({
+              model,
+              messages
+            })
+          }
+        );
+
+        const data = parseOpenRouterResponse(await response.text());
+
+        if (!response.ok) {
+          const errorMessage = formatOpenRouterError(data.error);
+          const rateLimited =
+            response.status === 429 || /rate|limit/i.test(errorMessage);
+
+          await recordOpenRouterUsage({
+            keyId: selectedKey.id,
+            tenantId: selectedKey.tenant_id,
+            endpoint,
+            status: "error",
+            errorCode: String(response.status),
+            errorMessage,
+            rateLimited
+          });
+
+          if (rateLimited) {
+            continue;
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        const content = data.choices?.[0]?.message?.content;
+
+        if (!content) {
+          throw new Error("OpenRouter retornou uma resposta vazia.");
+        }
+
+        await recordOpenRouterUsage({
+          keyId: selectedKey.id,
+          tenantId: selectedKey.tenant_id,
+          endpoint,
+          status: "success",
+          tokensInput: data.usage?.prompt_tokens ?? null,
+          tokensOutput: data.usage?.completion_tokens ?? null
+        });
+
+        return content;
+      } finally {
+        await releaseOpenRouterKey(selectedKey.id);
+      }
+    }
+
+    await queueAIRequest({
+      endpoint,
+      payload: {
+        model,
+        messages
+      },
+      lastError: "Todas as chaves OpenRouter tentadas entraram em limite."
+    });
+    await recordOpenRouterUsage({
+      keyId: null,
+      endpoint,
+      status: "queued",
+      errorMessage: "Todas as chaves OpenRouter tentadas entraram em limite."
+    });
+
+    throw new Error(
+      "Nenhuma chave dispon\u00edvel no momento. A requisi\u00e7\u00e3o foi colocada em fila."
     );
-
-    const data = parseOpenRouterResponse(await response.text());
-
-    if (!response.ok) {
-      throw new Error(formatOpenRouterError(data.error));
-    }
-
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("OpenRouter retornou uma resposta vazia.");
-    }
-
-    return content;
   }
 };

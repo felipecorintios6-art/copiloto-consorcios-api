@@ -38,10 +38,13 @@ OPENAI_API_KEY=
 
 OPENROUTER_API_KEY=
 OPENROUTER_MODEL=openrouter/free
+OPENROUTER_NEAR_LIMIT_MARGIN=0.1
+OPENROUTER_COOLDOWN_MINUTES=15
 
 SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+ENCRYPTION_SECRET=
 ```
 
 `AI_PROVIDER` aceita:
@@ -273,3 +276,37 @@ O campo `mensagens` deve usar uma mensagem por linha:
 ```
 
 Nesta etapa, o modulo apenas armazena e organiza dados. Ele ainda nao executa IA, classificacao automatica, memoria semantica ou aprendizado com historico.
+
+## Gerenciamento de capacidade OpenRouter
+
+O projeto tambem possui uma camada para operar multiplas chaves OpenRouter com controle de capacidade.
+
+Rotas administrativas:
+
+- `/admin/openrouter-keys`: dashboard de chaves, uso diario, concorrencia, cooldown e erros recentes.
+- `GET /api/admin/openrouter-keys`: lista chaves sem expor o valor completo.
+- `POST /api/admin/openrouter-keys`: cria chave criptografada.
+- `PATCH /api/admin/openrouter-keys/[id]`: atualiza status, limites, modelo, prioridade ou cooldown.
+- `DELETE /api/admin/openrouter-keys/[id]`: remove chave.
+- `POST /api/admin/process-ai-queue`: processador simples de fila.
+
+Tabelas usadas:
+
+- `openrouter_keys`
+- `openrouter_key_usage_logs`
+- `ai_request_queue`
+
+Seguranca:
+
+- A chave completa nunca e enviada ao frontend.
+- A chave e salva em `api_key_encrypted`.
+- O dashboard mostra apenas `key_preview`.
+- Configure `ENCRYPTION_SECRET` antes de cadastrar chaves.
+
+Regras operacionais:
+
+- `selectAvailableOpenRouterKey()` escolhe chave ativa, fora de cooldown, com saldo diario e concorrencia disponivel.
+- `recordOpenRouterUsage()` registra sucesso, erro, tokens e aplica cooldown quando houver rate limit.
+- `releaseOpenRouterKey()` reduz concorrencia ao final da chamada.
+- Quando nao houver chave disponivel, a requisicao e salva em `ai_request_queue`.
+- Chaves com `tenant_id` sao isoladas de chaves globais ou de outros tenants.
