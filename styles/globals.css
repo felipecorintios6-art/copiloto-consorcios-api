@@ -205,6 +205,144 @@ pre {
   color: var(--danger);
 }
 
+.memory-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.7fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.import-panel {
+  min-height: 300px;
+}
+
+.import-body {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.upload-zone {
+  display: grid;
+  min-height: 132px;
+  place-items: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+}
+
+.upload-zone input {
+  display: none;
+}
+
+.muted-line {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.counter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.counter-row span {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.compact-error {
+  min-height: auto;
+  border: 1px solid rgba(180, 35, 24, 0.2);
+  border-radius: 8px;
+  background: rgba(180, 35, 24, 0.06);
+  color: var(--danger);
+}
+
+.import-report,
+.error-list {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.import-report strong {
+  color: var(--text);
+}
+
+.preview-panel {
+  overflow: hidden;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th,
+td {
+  max-width: 280px;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+td {
+  color: var(--text);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.stat-card {
+  display: grid;
+  gap: 12px;
+  min-height: 126px;
+  align-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.stat-card span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.stat-card strong {
+  font-size: 34px;
+  line-height: 1;
+}
+
 @media (max-width: 900px) {
   .test-shell {
     padding: 16px;
@@ -216,6 +354,11 @@ pre {
   }
 
   .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .memory-grid,
+  .stats-grid {
     grid-template-columns: 1fr;
   }
 

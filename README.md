@@ -38,6 +38,10 @@ OPENAI_API_KEY=
 
 OPENROUTER_API_KEY=
 OPENROUTER_MODEL=openrouter/free
+
+SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
 ```
 
 `AI_PROVIDER` aceita:
@@ -221,3 +225,51 @@ npm run build
 ## Observacoes
 
 A rota `/test` existe apenas para facilitar testes do motor de IA. Ela nao e um CRM, nao armazena dados e nao implementa historico.
+
+## Memoria Comercial
+
+O modulo de Memoria Comercial permite importar conversas historicas para formar a base futura de conhecimento do Copiloto.
+
+Rotas:
+
+- `/memory`: resumo com empresas, leads, conversas e mensagens armazenadas.
+- `/memory/import`: upload de CSV ou JSON, preview, validacao e importacao.
+- `POST /api/import-conversations`: endpoint de importacao.
+- `GET /api/memory-summary`: endpoint de resumo.
+
+Antes de usar, execute o SQL de `supabase/schema.sql` no SQL Editor do Supabase.
+
+Variaveis necessarias:
+
+```env
+SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+O formato esperado para CSV ou JSON e:
+
+```txt
+empresa_nome
+lead_nome
+lead_telefone
+consultor_nome
+categoria_interesse
+valor_credito
+valor_entrada
+cidade_lead
+origem_lead
+status_lead
+resultado_final
+mensagens
+```
+
+O campo `mensagens` deve usar uma mensagem por linha:
+
+```txt
+[10/06/2026 09:15] Lead: Tenho interesse em uma carta de 200 mil
+[10/06/2026 09:16] Consultor: Perfeito, voce busca imovel ou veiculo?
+[10/06/2026 09:18] Lead: Veiculo
+```
+
+Nesta etapa, o modulo apenas armazena e organiza dados. Ele ainda nao executa IA, classificacao automatica, memoria semantica ou aprendizado com historico.
