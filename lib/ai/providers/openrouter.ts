@@ -50,10 +50,88 @@ function formatOpenRouterError(error: unknown): string {
   return JSON.stringify(error);
 }
 
+function hasSupabaseCapacityConfig() {
+  return Boolean(
+    (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY &&
+      process.env.ENCRYPTION_SECRET
+  );
+}
+
+async function callOpenRouter(input: {
+  apiKey: string;
+  messages: Array<{
+    role: string;
+    content: string;
+  }>;
+  model: string;
+}) {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://copiloto-consorcios-api.vercel.app",
+      "X-Title": "Copiloto Cons\u00f3rcios API"
+    },
+    body: JSON.stringify({
+      model: input.model,
+      messages: input.messages
+    })
+  });
+  const data = parseOpenRouterResponse(await response.text());
+
+  return {
+    response,
+    data
+  };
+}
+
+async function generateWithDirectOpenRouter(input: {
+  messages: Array<{
+    role: string;
+    content: string;
+  }>;
+  model: string;
+}) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      "Configure OPENROUTER_API_KEY para teste direto ou configure Supabase/ENCRYPTION_SECRET para usar o gerenciador de capacidade."
+    );
+  }
+
+  const { response, data } = await callOpenRouter({
+    apiKey,
+    messages: input.messages,
+    model: input.model
+  });
+
+  if (!response.ok) {
+    throw new Error(formatOpenRouterError(data.error));
+  }
+
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error("OpenRouter retornou uma resposta vazia.");
+  }
+
+  return content;
+}
+
 export const openRouterProvider: AIProvider = {
   id: "openrouter",
   defaultModel: "openrouter/free",
   async generateText({ messages, model }) {
+    if (!hasSupabaseCapacityConfig()) {
+      return generateWithDirectOpenRouter({
+        messages,
+        model
+      });
+    }
+
     const endpoint = "/api/suggest-response";
     const attemptedKeyIds = new Set<string>();
 
@@ -83,24 +161,11 @@ export const openRouterProvider: AIProvider = {
       attemptedKeyIds.add(selectedKey.id);
 
       try {
-        const response = await fetch(
-          "https://openrouter.ai/api/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${selectedKey.apiKey}`,
-              "Content-Type": "application/json",
-              "HTTP-Referer": "https://copiloto-consorcios-api.vercel.app",
-              "X-Title": "Copiloto Cons\u00f3rcios API"
-            },
-            body: JSON.stringify({
-              model,
-              messages
-            })
-          }
-        );
-
-        const data = parseOpenRouterResponse(await response.text());
+        const { response, data } = await callOpenRouter({
+          apiKey: selectedKey.apiKey,
+          messages,
+          model
+        });
 
         if (!response.ok) {
           const errorMessage = formatOpenRouterError(data.error);

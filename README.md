@@ -302,6 +302,8 @@ Seguranca:
 - A chave e salva em `api_key_encrypted`.
 - O dashboard mostra apenas `key_preview`.
 - Configure `ENCRYPTION_SECRET` antes de cadastrar chaves.
+- Para testes sem Supabase, o provider OpenRouter pode usar `OPENROUTER_API_KEY` diretamente.
+- Quando `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `ENCRYPTION_SECRET` estiverem configuradas, o provider usa o gerenciador de capacidade.
 
 Regras operacionais:
 
