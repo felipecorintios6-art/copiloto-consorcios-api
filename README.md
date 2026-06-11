@@ -47,6 +47,14 @@ SUPABASE_SERVICE_ROLE_KEY=
 ENCRYPTION_SECRET=
 ```
 
+Variaveis obrigatorias para cada area:
+
+- `/test` e `/api/suggest-response`: configure pelo menos a chave do provider escolhido em `AI_PROVIDER`.
+- `/memory` e `/api/memory/*`: configure `SUPABASE_URL` ou `NEXT_PUBLIC_SUPABASE_URL`, alem de `SUPABASE_SERVICE_ROLE_KEY`.
+- Gerenciador de capacidade OpenRouter: configure Supabase, `SUPABASE_SERVICE_ROLE_KEY` e `ENCRYPTION_SECRET`.
+
+Sem Supabase configurado, `/test` e `/api/suggest-response` continuam funcionando normalmente. Apenas `/memory` e `/api/memory/*` dependem do Supabase.
+
 ## Memoria comercial com Supabase
 
 As tabelas e indices estao em `supabase/migrations/001_memory_schema.sql`.
@@ -105,6 +113,13 @@ O endpoint `/api/memory/import-batch` recebe:
 ```
 
 As rotas `/api/memory/*` exigem `SUPABASE_URL` ou `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`. A chave service role fica somente no backend.
+
+Seguranca:
+
+- `SUPABASE_SERVICE_ROLE_KEY` nunca deve ser usada em componentes React, paginas frontend ou variaveis `NEXT_PUBLIC_*`.
+- `NEXT_PUBLIC_SUPABASE_URL` contem apenas a URL publica do projeto Supabase.
+- `.env.local` nao deve ser commitado.
+- O SQL da memoria fica em `supabase/migrations/001_memory_schema.sql`.
 
 `AI_PROVIDER` aceita:
 
@@ -270,13 +285,42 @@ Essas capacidades ainda nao foram implementadas, mas a estrutura ja separa HTTP,
 
 1. Suba o projeto para um repositorio Git.
 2. Importe o repositorio na Vercel.
-3. Configure as variaveis de ambiente:
-   - `AI_PROVIDER`
-   - `AI_MODEL`
-   - `DEEPSEEK_API_KEY`
-   - `GEMINI_API_KEY`
-   - `OPENAI_API_KEY`
-4. Faca o deploy.
+3. Abra o projeto na Vercel.
+4. Va em `Settings` > `Environment Variables`.
+5. Em `Key`, cole o nome da variavel.
+6. Em `Value`, cole o valor correspondente.
+7. Em `Environment`, selecione `Production`, `Preview` e `Development` se quiser usar a mesma configuracao em todos os ambientes.
+8. Clique em `Save`.
+9. Faca um novo deploy.
+
+Variaveis para colar na Vercel:
+
+- `AI_PROVIDER`: provider padrao de IA, por exemplo `openai`, `gemini`, `deepseek` ou `openrouter`.
+- `AI_MODEL`: opcional; deixe vazio se quiser usar o modelo padrao do provider.
+- `OPENAI_API_KEY`: cole somente se usar OpenAI.
+- `GEMINI_API_KEY`: cole somente se usar Gemini.
+- `DEEPSEEK_API_KEY`: cole somente se usar DeepSeek.
+- `OPENROUTER_API_KEY`: cole somente se usar OpenRouter direto, sem gerenciador de capacidade.
+- `OPENROUTER_MODEL`: opcional; padrao `openrouter/free`.
+- `OPENROUTER_NEAR_LIMIT_MARGIN`: opcional; padrao `0.1`.
+- `OPENROUTER_COOLDOWN_MINUTES`: opcional; padrao `15`.
+- `NEXT_PUBLIC_SUPABASE_URL`: cole a URL do projeto Supabase. Esta variavel pode ser publica.
+- `SUPABASE_URL`: cole a mesma URL do projeto Supabase para uso no backend.
+- `SUPABASE_SERVICE_ROLE_KEY`: cole a service role key do Supabase. Marque como variavel sensivel se a Vercel oferecer essa opcao.
+- `ENCRYPTION_SECRET`: cole uma string longa e privada se for usar o gerenciador de chaves OpenRouter.
+
+Checklist Supabase:
+
+1. Criar ou abrir o projeto no Supabase.
+2. Executar `supabase/migrations/001_memory_schema.sql` no SQL Editor do Supabase.
+3. Na Vercel, configurar `NEXT_PUBLIC_SUPABASE_URL`.
+4. Na Vercel, configurar `SUPABASE_URL`.
+5. Na Vercel, configurar `SUPABASE_SERVICE_ROLE_KEY`.
+6. Fazer redeploy na Vercel.
+7. Abrir `/test` e confirmar que o motor atual continua funcionando.
+8. Abrir `/memory` e confirmar que os contadores carregam.
+9. Abrir `/memory/import`, usar o exemplo e importar um lote de teste.
+10. Confirmar no Supabase se os registros apareceram nas tabelas.
 
 Build:
 
@@ -287,54 +331,6 @@ npm run build
 ## Observacoes
 
 A rota `/test` existe apenas para facilitar testes do motor de IA. Ela nao e um CRM, nao armazena dados e nao implementa historico.
-
-## Memoria Comercial
-
-O modulo de Memoria Comercial permite importar conversas historicas para formar a base futura de conhecimento do Copiloto.
-
-Rotas:
-
-- `/memory`: resumo com empresas, leads, conversas e mensagens armazenadas.
-- `/memory/import`: upload de CSV ou JSON, preview, validacao e importacao.
-- `POST /api/import-conversations`: endpoint de importacao.
-- `GET /api/memory-summary`: endpoint de resumo.
-
-Antes de usar, execute o SQL de `supabase/schema.sql` no SQL Editor do Supabase.
-
-Variaveis necessarias:
-
-```env
-SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-```
-
-O formato esperado para CSV ou JSON e:
-
-```txt
-empresa_nome
-lead_nome
-lead_telefone
-consultor_nome
-categoria_interesse
-valor_credito
-valor_entrada
-cidade_lead
-origem_lead
-status_lead
-resultado_final
-mensagens
-```
-
-O campo `mensagens` deve usar uma mensagem por linha:
-
-```txt
-[10/06/2026 09:15] Lead: Tenho interesse em uma carta de 200 mil
-[10/06/2026 09:16] Consultor: Perfeito, voce busca imovel ou veiculo?
-[10/06/2026 09:18] Lead: Veiculo
-```
-
-Nesta etapa, o modulo apenas armazena e organiza dados. Ele ainda nao executa IA, classificacao automatica, memoria semantica ou aprendizado com historico.
 
 ## Gerenciamento de capacidade OpenRouter
 

@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { importBatch } from "@/lib/memory/supabaseRest";
+import {
+  importBatch,
+  SupabaseMemoryConfigError
+} from "@/lib/memory/supabaseRest";
 import type { ImportBatchInput, ImportBatchResult } from "@/lib/types/memory";
 
 type ResponseBody =
@@ -30,6 +33,10 @@ export default async function handler(
       imported
     });
   } catch (error) {
+    if (error instanceof SupabaseMemoryConfigError) {
+      return res.status(503).json({ error: error.message });
+    }
+
     const message =
       error instanceof Error ? error.message : "Erro ao importar lote.";
 

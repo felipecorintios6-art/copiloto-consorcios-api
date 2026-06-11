@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { upsertLead } from "@/lib/memory/supabaseRest";
+import {
+  SupabaseMemoryConfigError,
+  upsertLead
+} from "@/lib/memory/supabaseRest";
 import type { LeadInput } from "@/lib/types/memory";
 
 type ResponseBody =
@@ -22,6 +25,10 @@ export default async function handler(
       created: result.created
     });
   } catch (error) {
+    if (error instanceof SupabaseMemoryConfigError) {
+      return res.status(503).json({ error: error.message });
+    }
+
     const message =
       error instanceof Error ? error.message : "Erro ao importar lead.";
 
